@@ -2,8 +2,10 @@ const express = require('express');
 const fs = require('fs');
 const router = express.Router();
 const validator = require("email-validator");
+const passport = require('passport');
+const User = require('../Models/User');
 
-// Sign-in route
+// Signin route
 router.post('/signin', (req, res) => {
     if (!req.query || !req.query.id || !req.query.email || !req.query.age || !req.query.password) {
         return res.status(400).json({ error: 'Invalid request body' });
@@ -40,23 +42,29 @@ router.post('/signin', (req, res) => {
         return res.status(400).json({ error: 'Password must contain at least 8 characters, including at least one number, one uppercase letter, one lowercase letter, and one special character.' });
     }
 
-    // This is putting the new profile in RAM for faster and cheaper use when needed
-    profiles.push({id: id, email: email, age: age, password: password});
-    idsArray.push(id);
-    loginChecks.push({id: id, password: password});
-    
-    // This is saving the profiles for not losing them when the server goes down
-    save('profiles.json', profiles);
-    save('ids.json', idsArray);
-    save('loginChecks.json', loginChecks);
+    User.register(new User({ id, email, age }), password, (err, user) => {
+        if (err) {
+            console.error(err);
+            return res.redirect('/register');
+        }
+        // Automatically authenticate the user after registration
+        passport.authenticate('local')(req, res, () => {
+            res.redirect('/dashboard');
+        });
+    });
 
     res.status(200).send("This is the signin request");
 });
 
-// Log-in route
-router.post('/login', (req, res) => {
-    // Handle log-in logic
-    res.status(200).send("This is the login request");
+// Login route
+router.post('/login', passport.authenticate('local'), (req, res) => {
+    res.redirect('/dashboard');
+});
+
+// Logout route
+router.get('/logout', (req, res) => {
+    req.logout();
+    res.redirect('/');
 });
 
 function save(fileName, data) {

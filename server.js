@@ -1,8 +1,12 @@
 const express = require("express");
 const app = express();
+const session = require('express-session');
+const passport = require('passport');
+const User = require('./Models/User');
 const path = require("path");
-const PORT = 3000;
 const fs = require("fs");
+const sessionStoreMiddleware = require('./sessionStore');
+const PORT = 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -19,22 +23,45 @@ app.use((req, res, next) => {
     next();
 });
 
+app.use(express.json());
+
+app.use(session({
+    secret: 'DfqXKcgIQKc9MWCx1sCOsLi5b1lVAdHt',
+    resave: false,
+    saveUninitialized: false,
+    store: sessionStoreMiddleware(session)
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Routes and middleware:
 const auth = require("./routes/auth");
-const authenticate = require("./middleware/authenticate");
 app.use("/auth", auth);
 
 // All application-level requests are here:
+app.get('/dashboard', ensureAuthenticated, (req, res) => {
+    res.send('Dashboard');
+});
+
 app.get("/test", function(req, res) {
     res.status(200).send("Hello World");
-})
+});
 
 // For all not correct requests
 app.use((req, res) => {
     res.status(404).send("File not found");
-})
+});
 
 // For starting the server
 app.listen(PORT, () => {
     console.log("Listening to port", PORT);
-})
+});
+
+// Functions
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated()) {
+        return next();
+    }
+    res.redirect('/login');
+}
